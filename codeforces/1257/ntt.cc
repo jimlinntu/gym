@@ -39,9 +39,8 @@ void print_w(LL w[], LL n){
 }
 
 int reverse_add(int i, int bit_length){
-    int bit = 1 << (bit_length-1);
     // if the bit we are xoring is 0, then (i ^ bit) > i 
-    for(;bit != 0; bit >>= 1){
+    for(int bit = 1 << (bit_length-1); bit != 0; bit >>= 1){
         if((i^bit) > i){
             i ^= bit;
             break;
