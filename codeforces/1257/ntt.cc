@@ -145,7 +145,7 @@ int main(){
     random_device rd;
     default_random_engine gen;
     gen.seed(seed);
-    uniform_int_distribution<int> dis(1, 100);
+    uniform_int_distribution<int> dis(-100, 100);
     LL a[8] = {0}, b[8] = {0}, out[8] = {0};
 
     for(int i = 0; i < 4; i++){
@@ -155,9 +155,17 @@ int main(){
     printf("[*] Using naive polynomial multiplication!\n");
     naive_poly_mult(a, b, out, 8);
     print_poly(out, 8);
+    for(int i = 0; i < 4; i++){
+        if(a[i] < 0) a[i] = P + a[i];
+        if(b[i] < 0) b[i] = P + b[i];
+    }
     initialize_w();
     printf("[*] Using numeric theoretic tranformation polynomial multiplication!\n");
     fast_poly_mult(a, b, out, 8);
+    // Restore
+    for(int i = 0; i < 8; i++){
+        if(out[i] > (P-1)/2) out[i] = out[i] - P;
+    }
     print_poly(out, 8);
     
 
