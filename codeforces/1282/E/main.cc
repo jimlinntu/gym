@@ -7,24 +7,20 @@
 #include <algorithm>
 #include <utility>
 #include <vector>
+#include <numeric>
 #define MAXN 100001
 #define INITSIZE 8
 #define MIN(x,y) ((x)<(y)? (x):(y))
 using namespace std;
 
 int n, t; // the number of nodes and the number of testcases
+int num_triangles;
 
 int a, b, c;
 
 struct Node;
 struct Triangle;
 struct Pair;
-
-int intlog2(int n){
-    int power = 0;
-    while((n >>=1)) power++;
-    return power;
-}
 
 struct Pair{
     int left, right;
@@ -54,7 +50,6 @@ namespace std{
 unordered_map<Pair, int> edge2count;
 
 struct Node{
-    // x[node index] = (has edge, is merge cut)
     int index;
     vector<int> indices;
 
@@ -65,7 +60,6 @@ struct Node{
     }
 
     bool link(int node_idx){
-        // this (a -> b) link already exist
         Pair edge = Pair(index, node_idx);
         if(edge2count[edge] != 0){
             edge2count[edge] += 1; // second visit: mark it as a merge cut
@@ -77,10 +71,8 @@ struct Node{
         }
     }
     
-    static bool link_two(Node *left, int left_idx, Node *right, int right_idx){
-        bool ret = left->link(right_idx);
-        right->link(left_idx);
-        return ret;
+    static bool link_two(Node *left, int right_idx){
+        return left->link(right_idx);
     }
 };
 
@@ -99,7 +91,7 @@ struct Triangle{
         index = i;
         num_cut = 0;
         // ( a <-> b )
-        bool ret = Node::link_two(&vertices[a], a, &vertices[b], b);
+        bool ret = Node::link_two(&vertices[a], b);
         // if this link already exists
         if(ret){
             // this (a, b) pair belongs to this triangle
@@ -116,7 +108,7 @@ struct Triangle{
         }
 
         // ( b <-> c )
-        ret = Node::link_two(&vertices[b], b, &vertices[c], c);
+        ret = Node::link_two(&vertices[b], c);
         if(ret){
             int existing_triangle_index = edge2triangleIdx[Pair(b, c)];
             triangles[existing_triangle_index].num_cut += 1; // other
@@ -130,7 +122,7 @@ struct Triangle{
         }
         
         // ( c <-> a )
-        ret = Node::link_two(&vertices[c], c, &vertices[a], a);
+        ret = Node::link_two(&vertices[c], a);
         if(ret){
             int existing_triangle_index = edge2triangleIdx[Pair(c, a)];
             triangles[existing_triangle_index].num_cut += 1; // other
@@ -143,21 +135,20 @@ struct Triangle{
             edge2triangleIdx[Pair(c, a)] = index;
         }
     }
+
     bool operator < (const Triangle& t) const{
         return num_cut < t.num_cut;
     }
 
     static void heapify_indices(int indices[], Triangle triangles[], int root_idx, int triangleIdx2heapIdx[]){
-        // heapify the indices based on the num_cut of triangles
-        // min heap (<)
-        int left = 2 * root_idx + 1, right = left + 1;
-        if(left < n) Triangle::heapify_indices(indices, triangles, left, triangleIdx2heapIdx);
-        if(right < n) Triangle::heapify_indices(indices, triangles, right, triangleIdx2heapIdx);
+        int left = 2 * root_idx + 1, right = 2 * root_idx + 2;
+        if(left < num_triangles) Triangle::heapify_indices(indices, triangles, left, triangleIdx2heapIdx);
+        if(right < num_triangles) Triangle::heapify_indices(indices, triangles, right, triangleIdx2heapIdx);
 
-        int min_index = root_idx;
-        if(left < n && triangles[indices[left]].num_cut < triangles[indices[root_idx]].num_cut) min_index = left;
-        if(right < n && triangles[indices[right]].num_cut < triangles[indices[root_idx]].num_cut && 
-                triangles[indices[right]].num_cut < triangles[indices[left]].num_cut)
+        int min_index = root_idx; // set itself
+        if(left < num_triangles && triangles[indices[left]] < triangles[indices[root_idx]]) min_index = left;
+        if(right < num_triangles && triangles[indices[right]] < triangles[indices[root_idx]] && 
+                triangles[indices[right]] < triangles[indices[left]])
             min_index = right;
         
         // swap
@@ -169,16 +160,18 @@ struct Triangle{
             // swap this value until no children is strictly smaller than this parent
             Triangle::siftdown(indices, triangles, min_index, triangleIdx2heapIdx);
         }
+        return;
     }
 
     static void siftdown(int indices[], Triangle triangles[], int root_idx, int triangleIdx2heapIdx[]){
         int left, right;
-        int parent = root_idx;
+        int parent = root_idx; // set parent to itself
         while(true){
-            left = 2*parent+1, right = 2*parent+2;
-            if(left < n && triangles[indices[left]].num_cut < triangles[indices[parent]].num_cut) root_idx = left;
-            if(right < n && triangles[indices[right]].num_cut < triangles[indices[parent]].num_cut &&
-                triangles[indices[right]].num_cut < triangles[indices[left]].num_cut) root_idx = right;
+            left = 2*parent+1, right = 2*parent+2; // start to check it children
+            if(left < num_triangles && triangles[indices[left]] < triangles[indices[parent]]) root_idx = left; // save the potential next root
+            if(right < num_triangles && triangles[indices[right]] < triangles[indices[parent]] &&
+                triangles[indices[right]] < triangles[indices[left]]) root_idx = right; // save the potential next root 
+ 
 
             if(parent != root_idx){
                 // make sure triangleIdx2heapIdx[idx] can retrieve the current position of idx in heapified indices
@@ -189,31 +182,36 @@ struct Triangle{
         }
     }
     static void siftup(int indices[], Triangle triangles[], int root_idx, int triangleIdx2heapIdx[]){
-        int parent = (root_idx - 1) / 2;
-        if(parent < 0) return;
-        if(triangles[indices[root_idx]].num_cut < triangles[indices[parent]].num_cut){
-            // make sure triangleIdx2heapIdx[idx] can retrieve the current position of idx in heapified indices
-            swap(triangleIdx2heapIdx[indices[root_idx]], triangleIdx2heapIdx[indices[parent]]);
-            swap(indices[root_idx], indices[parent]);
-            Triangle::siftup(indices, triangles, parent, triangleIdx2heapIdx);
+        while(true){
+            int parent = (root_idx - 1) / 2; // check its parent
+            if(parent >= 0 && triangles[indices[root_idx]] < triangles[indices[parent]]){
+                // make sure triangleIdx2heapIdx[idx] can retrieve the current position of idx in heapified indices
+                swap(triangleIdx2heapIdx[indices[root_idx]], triangleIdx2heapIdx[indices[parent]]);
+                swap(indices[root_idx], indices[parent]);
+                
+                root_idx = parent; // move up
+            }else break;
         }
     }
 
     static int pop(int indices[], Triangle triangles[], vector<int> neighbors_of_triangles[], int triangleIdx2heapIdx[]){
+        int pop_idx = indices[0]; // a triangle's index
+
+        if(num_triangles == 1) return pop_idx; // if there is only one remaining.
+
         // throw the minimum num_cut to the end of this array
-        int pop_idx = indices[0];
-
-        if(n == 1) return pop_idx; // if there is only one remaining.
-
-        swap(indices[0], indices[n-1]);
-        n--; // decrease the size of this heap
+        swap(triangleIdx2heapIdx[indices[0]], triangleIdx2heapIdx[indices[num_triangles-1]]);
+        swap(indices[0], indices[num_triangles-1]);
+        num_triangles--; // decrease the size of this heap
         
         Triangle::siftdown(indices, triangles, 0, triangleIdx2heapIdx);
         
         // update this pop_idx's neighbor's num_cut
         for(int i = 0; i < (int)neighbors_of_triangles[pop_idx].size(); i++){
             int updated_idx = neighbors_of_triangles[pop_idx][i];
+            // decrement this triangle's number of cut
             triangles[updated_idx].num_cut--;
+            // Because the number of cut decreased, we should consider sifting up this triangle
             // triangleIdx2heapIdx[updated_idx] == the current index of `updated_idx` in `indices` heap
             Triangle::siftup(indices, triangles, triangleIdx2heapIdx[updated_idx], triangleIdx2heapIdx);
         }
@@ -222,9 +220,9 @@ struct Triangle{
 };
 
 Triangle triangles[MAXN];
-int indices[MAXN]; // used for argument sorting
+int indices[MAXN]; // used for argument sorting: indices[i] == a triangle index
 vector<int> neighbors_of_triangles[MAXN]; // save the neighbors of each triangle
-int triangleIdx2heapIdx[MAXN];
+int triangleIdx2heapIdx[MAXN]; // triangle Idx -> where is this idx in `indices` heap?
 
 void dfs(int start_idx){
     // initialize visit flag
@@ -269,10 +267,15 @@ void dfs(int start_idx){
 void search(){
     // print permutation
     dfs(0);
+
+    iota(indices, indices+num_triangles, 0); // indices = [0, 1, 2, ... n-3]
+    iota(triangleIdx2heapIdx, triangleIdx2heapIdx+num_triangles, 0); // triangleIdx2heapIdx = [0, 1, 2, ... n-3]
+    Triangle::heapify_indices(indices, triangles, 0, triangleIdx2heapIdx);
     // print the order of slicing
-    for(int i = 0; i < n-2; i++){
-        if(i != 0) printf(" %d", triangles[i].index+1);
-        else printf("%d", triangles[i].index+1);
+    for(int i = 0; i < num_triangles; i++){
+        int pop_idx = Triangle::pop(indices, triangles, neighbors_of_triangles, triangleIdx2heapIdx);
+        if(i != 0) printf(" %d", pop_idx+1);
+        else printf("%d", pop_idx+1);
     }
     printf("\n");
 }
@@ -281,11 +284,12 @@ int main(){
     scanf("%d", &t);
     for(int i = 0; i < t; i++){
         scanf("%d", &n);
+        num_triangles = n - 2;
         for(int j = 0; j < n; j++){
             indices[j] = j;
             vertices[j].init(j); // initialize each vertex
         }
-        for(int j = 0; j < n-2; j++){
+        for(int j = 0; j < num_triangles; j++){
             scanf("%d %d %d", &a, &b, &c);
             triangles[j].init(j, a-1, b-1, c-1, triangles, neighbors_of_triangles);
         }
