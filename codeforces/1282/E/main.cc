@@ -15,12 +15,12 @@ using namespace std;
 
 int n, t; // the number of nodes and the number of testcases
 int num_triangles;
-
 int a, b, c;
 
 struct Node;
 struct Triangle;
 struct Pair;
+struct Heap;
 
 struct Pair{
     int left, right;
@@ -35,6 +35,7 @@ struct Pair{
     }
 };
 
+// Define a hash function for Pair
 namespace std{
     template <>
     class hash<Pair>{
@@ -46,19 +47,19 @@ namespace std{
     };
 }
 
-// (a,b) -> 0(no connecting edge) or 1(non merge cut) or 2(merge cut)
-unordered_map<Pair, int> edge2count;
 
 struct Node{
     int index;
     vector<int> indices;
-
+    // (a,b) -> 0(no connecting edge) or 1(non merge cut) or 2(merge cut)
+    static unordered_map<Pair, int> edge2count;
 
     void init(int idx){
         index = idx;
         indices.clear();
     }
 
+    // Link this node and other node's index
     bool link(int node_idx){
         Pair edge = Pair(index, node_idx);
         int added = (++edge2count[edge]);
@@ -75,17 +76,17 @@ struct Node{
     }
 };
 
+unordered_map<Pair, int> Node::edge2count;
 
 // vertices from 0 to n-1
 Node vertices[MAXN];
 bool visit[MAXN];
 
-// Map an edge (a, b) to an index of a triangle
-unordered_map<Pair, int> edge2triangleIdx;
-
 struct Triangle{
     int index; // the original index
     int num_cut;
+    // Map an edge (a, b) to an index of a triangle
+    static unordered_map<Pair, int> edge2triangleIdx;
     void init(int i, int a, int b, int c, Triangle triangles[], vector<int> neighbors_of_triangles[]){
         index = i;
         num_cut = 0;
@@ -135,14 +136,20 @@ struct Triangle{
         }
     }
 
+    // operator < overloading
     bool operator < (const Triangle& t) const{
         return num_cut < t.num_cut;
     }
+};
+
+unordered_map<Pair, int> Triangle::edge2triangleIdx;
+
+struct Heap{
 
     static void heapify_indices(int indices[], Triangle triangles[], int root_idx, int triangleIdx2heapIdx[]){
         int left = 2 * root_idx + 1, right = 2 * root_idx + 2;
-        if(left < num_triangles) Triangle::heapify_indices(indices, triangles, left, triangleIdx2heapIdx);
-        if(right < num_triangles) Triangle::heapify_indices(indices, triangles, right, triangleIdx2heapIdx);
+        if(left < num_triangles) Heap::heapify_indices(indices, triangles, left, triangleIdx2heapIdx);
+        if(right < num_triangles) Heap::heapify_indices(indices, triangles, right, triangleIdx2heapIdx);
 
         int min_index = root_idx; // set itself
         if(left < num_triangles && triangles[indices[left]] < triangles[indices[root_idx]]) min_index = left;
@@ -150,18 +157,19 @@ struct Triangle{
                 triangles[indices[right]] < triangles[indices[left]])
             min_index = right;
         
-        // swap
+        // swap if there is no node smaller than itself
         if(min_index != root_idx){
             // make sure triangleIdx2heapIdx[idx] can retrieve the current position of idx in heapified indices
             swap(triangleIdx2heapIdx[indices[root_idx]], triangleIdx2heapIdx[indices[min_index]]);
             // swap two triangles' indices
             swap(indices[root_idx], indices[min_index]);
             // swap this value until no children is strictly smaller than this parent
-            Triangle::siftdown(indices, triangles, min_index, triangleIdx2heapIdx, num_triangles);
+            Heap::siftdown(indices, triangles, min_index, triangleIdx2heapIdx, num_triangles);
         }
         return;
     }
 
+    // Fix a node by swapping it until all children are not smaller than itself
     static void siftdown(int indices[], Triangle triangles[], int root_idx, int triangleIdx2heapIdx[], int heap_size){
         int left, right;
         int parent = root_idx; // set parent to itself
@@ -180,6 +188,7 @@ struct Triangle{
             }else break;
         }
     }
+
     static void siftup(int indices[], Triangle triangles[], int root_idx, int triangleIdx2heapIdx[]){
         while(true){
             int parent = (root_idx - 1) / 2; // check its parent
@@ -206,8 +215,7 @@ struct Triangle{
         heap_size -= 1; // already pop the minimum one
 
         // because we just swap a node on top of this heap, we should fix it! (NOTE: we should siftdown < heap_size)
-        Triangle::siftdown(indices, triangles, 0, triangleIdx2heapIdx, heap_size);
-
+        Heap::siftdown(indices, triangles, 0, triangleIdx2heapIdx, heap_size);
         
         // update this pop_idx's neighbor's num_cut
         for(int i = 0; i < (int)neighbors_of_triangles[pop_idx].size(); i++){
@@ -218,7 +226,7 @@ struct Triangle{
             // triangleIdx2heapIdx[updated_idx] == the current index of `updated_idx` in `indices` heap
             // NOTE: we do not need to siftup a node that is throw away
             if(triangleIdx2heapIdx[updated_idx] < heap_size){
-                Triangle::siftup(indices, triangles, triangleIdx2heapIdx[updated_idx], triangleIdx2heapIdx);
+                Heap::siftup(indices, triangles, triangleIdx2heapIdx[updated_idx], triangleIdx2heapIdx);
             }
         }
         return pop_idx;
@@ -249,7 +257,7 @@ void dfs(int start_idx){
         for(int i = 0; i < length; i++){
             int index = current_vertex->indices[i];
             // if this edge is not mark as merge cut, we do not pass through this edge!!
-            if(visit[index] == false and edge2count[Pair(current_vertex->index, index)] == 2){
+            if(visit[index] == false and Node::edge2count[Pair(current_vertex->index, index)] == 2){
                 permutation.push_back(index);
                 visit[index] = true;
                 // move to the next vertex
@@ -274,27 +282,27 @@ void search(){
     // print permutation
     dfs(0);
 
+    // ======= Initialize two index mapping arrays =======
     iota(indices, indices+num_triangles, 0); // indices = [0, 1, 2, ... n-3]
     iota(triangleIdx2heapIdx, triangleIdx2heapIdx+num_triangles, 0); // triangleIdx2heapIdx = [0, 1, 2, ... n-3]
-    Triangle::heapify_indices(indices, triangles, 0, triangleIdx2heapIdx);
+    // ===================================================
+    // ======= Heapify this indices array according to each triangle's number of cut =======
+    Heap::heapify_indices(indices, triangles, 0, triangleIdx2heapIdx);
+    // =====================================================================================
 
-    /* printf("indices: "); */
-    /* for(int i = 0; i < num_triangles; i++){ */
-    /*     printf("(idx, num_cut) == (%d, %d) \n", indices[i], triangles[indices[i]].num_cut); */
-    /*     assert(triangleIdx2heapIdx[indices[i]] == i); */
-    /* } */
-    // print the order of slicing
+    // ======== Cut the triangle which has the smallest number of cut (of course you will need to update its adjacent triangles!) ===
     for(int i = 0; i < num_triangles; i++){
-        int pop_idx = Triangle::pop(indices, triangles, neighbors_of_triangles, triangleIdx2heapIdx, num_triangles-i);
+        int pop_idx = Heap::pop(indices, triangles, neighbors_of_triangles, triangleIdx2heapIdx, num_triangles-i);
         if(i != 0) printf(" %d", pop_idx+1);
         else printf("%d", pop_idx+1);
     }
     printf("\n");
+    // ==============================================================================================================================
 }
 
 int main(){
-    edge2triangleIdx.reserve(100000);
-    edge2count.reserve(100000);
+    Triangle::edge2triangleIdx.reserve(100000);
+    Node::edge2count.reserve(100000);
     scanf("%d", &t);
     for(int i = 0; i < t; i++){
         scanf("%d", &n);
@@ -309,8 +317,8 @@ int main(){
         // Search
         search();
         // clear memory
-        edge2triangleIdx.clear();
-        edge2count.clear();
+        Triangle::edge2triangleIdx.clear();
+        Node::edge2count.clear();
         for(int i = 0; i < num_triangles; i++){
             neighbors_of_triangles[i].clear();
         }
