@@ -1,4 +1,5 @@
 #include <bits/stdc++.h>
+#define MAX(x, y) (((x)<(y))?(y):(x))
 using namespace std;
 using LL = long long;
 
@@ -70,6 +71,7 @@ public:
         unordered_map<Slope, int> map_counter;
         for(int i = 0; i < n; i++){
             int num_dup_point = 0;
+            int max_count = 0; // if there is no line for this points[i] then max_count == 0
             // O(n)
             for(int j = i+1; j < n; j++){
                 int x1 = points[i][0], y1 = points[i][1];
@@ -78,18 +80,15 @@ public:
                     num_dup_point++;
                 }else{
                     Slope slope(points[i], points[j]);
-                    ++map_counter[slope];
+                    // update every time we see a line
+                    int count = (++map_counter[slope]);
+                    max_count = MAX(max_count, count);
                 }
             }
 
             int num_itself = 1 + num_dup_point; // number of itself
-            int max_count = 0; // if there is no line for this points[i] then max_count == 0
-            // O(n)
-            for(auto it = map_counter.begin(); it != map_counter.end(); it++){
-                max_count = max(max_count, it->second);
-            }
             max_count += num_itself; // add the number of itself
-            num_max_point = max(max_count, num_max_point);
+            num_max_point = MAX(max_count, num_max_point);
 
             // Probably O(n)
             map_counter.clear();
