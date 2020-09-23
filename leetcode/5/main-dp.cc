@@ -20,6 +20,8 @@ public:
                 int x = i, y = i+len-1;
                 // sx, |sx+1, sx+2 ... sy-1|, sy
                 // if dp(x+1, y-1) != len-2, we cannot update it!
+                // BUG!: when len == 2, dp[x+1][y-1] will access uninitialized regions
+                // Ex. x = 0, y = 1, dp[x+1][y-1] == dp[1][0] which is uninitialized
                 if(s[x] == s[y] && dp[x+1][y-1] == len-2){
                     dp[x][y] = len;
                 }else{
