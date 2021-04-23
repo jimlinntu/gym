@@ -6,9 +6,7 @@ public:
         // throughout the original greedy approarch.
 
         // The reason why it must be a decreasing stack is
-        // If we instead maintain a increasing stack, after the pass
-        // we will not be able to remove the smallest one first
-        // because it is at the bottom of the stack
+        // An increasing stack will try to check the hill first rather than the valley first
         stack<int> s;
         int ans = 0;
         for(int num: arr){
