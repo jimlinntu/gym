@@ -17,7 +17,7 @@ public:
         TreeNode fake_root;
         TreeNode *parent = &fake_root;
         stack<TreeNode*> stk;
-        while(i < n or j < n){
+        while(i < n and j < n){
             while(i < n){
                 TreeNode *cur = new TreeNode(preorder[i]);
                 if(parent != nullptr){
