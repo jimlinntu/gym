@@ -72,7 +72,12 @@ public:
                 // cur_h is the height after leaving the current point
                 // NOTE: +1 is because of [l, r)
                 int cur_h = query(bit, map[x]+1);
-
+                // Tricky case: [1, 2, 2], [1, 2, 3]
+                // if we let (x == 1, h == 2) goes first,
+                // later (x == 1, h == 3) will have prev_h == 2, cur_h == 3
+                // then it will output again!!!
+                // If (x == 1, h == 3) goes first,
+                // then (x == 1, h == 2)'s prev_h == 3, cur_h == 3, it will not be output
                 if(cur_h != prev_h){
                     ans.push_back({x, cur_h});
                 }
