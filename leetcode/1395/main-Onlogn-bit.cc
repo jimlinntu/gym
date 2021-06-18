@@ -38,7 +38,7 @@ int find_triplet(vector<int> &r){
         map[v] = idx+1; // 1-index
     }
 
-    // less[i] == sum(1 for j < i and r[j] > r[i])
+    // less[i] == sum(1 for j < i and r[j] < r[i])
     vector<int> less(n, 0);
     vector<int> bit_for_less(map.size()+1, 0);
     // triplet[i] == sum(1 for k < j < i and r[k] < r[j] < r[i])
@@ -49,7 +49,7 @@ int find_triplet(vector<int> &r){
     vector<int> bit_for_triplet(map.size()+1, 0);
     // Compute less[i]
     for(int i = 0; i < n; i++){
-        // compute sum(1 for j < i and r[j] > r[i])
+        // compute sum(1 for j < i and r[j] < r[i])
         // NOTE: 1. We have only seen numbers on the left so j < i is ensured
         //       2. Binary Indexed Tree will help us compute the prefix sum in O(log n)
         //       3. map[r[i]] will reindex to the virtual array so that every things
