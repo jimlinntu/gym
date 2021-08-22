@@ -1,6 +1,7 @@
 class Solution {
 public:
     int ans = INT_MAX;
+    int num_hand;
     void collapse(string &board){
         while(true){
             int n = board.size();
@@ -26,6 +27,7 @@ public:
             ans = min(ans, used);
             return;
         }
+        if(used == num_hand) return;
         // The color we can use
         for(auto it = hand_freq.begin(); it != hand_freq.end(); it++){
             char color = it->first;
@@ -41,8 +43,10 @@ public:
                 if(i >= 1 and i < n and
                    board[i-1] != board[i] and board[i-1] != color and board[i] != color)
                     continue;
-                // 2. Pruning: YY --> YY
-                if(i >= 1 and board[i-1] == board[i] and color == board[i]) continue;
+                // 2. Pruning: YY --> YYY
+                if(i >= 1 and i < n and
+                   board[i-1] == board[i] and color == board[i]) continue;
+                if(i >= 2 and board[i-2] == board[i-1] and color == board[i-1]) continue;
                 // insert here
                 string new_board = board;
                 
@@ -57,8 +61,10 @@ public:
     }
     int findMinStep(string board, string hand) {
         unordered_map<char, int> hand_freq;
+        num_hand = 0;
         for(char c: hand){
             hand_freq[c]++;
+            num_hand++;
         }
 
         solve(board, hand_freq, 0);
