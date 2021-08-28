@@ -84,7 +84,58 @@ int solve2(vector<int> a, vector<int> b, int d){
     return ans;
 }
 
+struct E{
+    int min, max;
+};
+int solve_bucket(vector<int> a, vector<int> b, int d){
+    int mm = a[0];
+    for(int i = 0; i < a.size(); i++){
+        mm = min(mm, a[i]);
+    }
+    // buckets: [mm, mm+d], [mm+d+1, mm+2d]
+    // NOTE: [mm, mm+d] contain d+1 elements, that's why we divide it by (d+1)
+    unordered_map<int, E> map;
+    for(int i = 0; i < a.size(); i++){
+        int bidx = (a[i] - mm)/(d+1);
+        if(map.count(bidx)){
+            // [min, max] // update
+            map[bidx].min = min(map[bidx].min, a[i]);
+            map[bidx].max = max(map[bidx].max, a[i]);
+        }else{
+            map[bidx] = {a[i], a[i]};
+        }
+    }
+    // For each b[i], if the bucket idx b[i] is bidx
+    // check bidx-1, bidx, bidx+1
+    int count = 0;
+    for(int i = 0; i < b.size(); i++){
+        int bidx;
+        if(b[i] >= mm){
+            bidx = (b[i]-mm)/(d+1);
+        }else{
+            // -1: [mm-d-1, mm-1]
+            // -2: [mm-2d-2, mm-d-2]
+            bidx = -((mm-b[i]-1)/(d+1)) - 1;
+        }
+
+        // fall into a bucket
+        if(map.count(bidx)) continue;
+        // check bidx-1
+        if(map.count(bidx-1) and b[i] - map[bidx-1].max <= d){
+            continue;
+        }
+        // check bidx+1
+        if(map.count(bidx+1) and map[bidx-1].min - b[i] <= d){
+            continue;
+        }
+
+        count++;
+    }
+    return count;
+}
+
 int main(){
     cout << solve2({7, 5, 9}, {13, 1, 4}, 3) << endl;
+    cout << solve_bucket({7, 5, 9}, {13, 1, 4}, 3) << endl;
     return 0;
 }
